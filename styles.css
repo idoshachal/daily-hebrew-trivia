@@ -448,6 +448,38 @@ h2 {
   color: var(--bad);
 }
 
+.manage {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.manage[hidden] {
+  display: none;
+}
+
+.manage button {
+  font: inherit;
+  font-weight: 700;
+  color: #fffaf3;
+  background: var(--accent);
+  border: 1.5px solid var(--accent);
+  border-radius: 999px;
+  padding: 0.55rem 0.95rem;
+  cursor: pointer;
+}
+
+.manage button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.manage p {
+  margin: 0.75rem 0 0;
+  font-weight: 700;
+  color: var(--muted);
+}
+
 .tomorrow {
   margin: 1rem 0.2rem 0;
   color: var(--muted);

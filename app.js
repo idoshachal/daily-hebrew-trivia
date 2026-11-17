@@ -17,11 +17,21 @@ const copyNote = document.getElementById("copy-note");
 const memoryEl = document.getElementById("memory");
 const suggestForm = document.getElementById("suggest");
 const suggestNote = document.getElementById("suggest-note");
+const manageEl = document.getElementById("manage");
+const rerollBtn = document.getElementById("reroll-btn");
+const rerollNote = document.getElementById("reroll-note");
 const MEMORY_TEXT = {
   new: "למדתי משהו חדש",
   knew: "ידעתי פעם והספקתי לשכוח",
   remembered: "ידעתי וגם זכרתי",
 };
+const STATS_FORM =
+  "https://docs.google.com/forms/d/e/1FAIpQLScvowx85-R-xayC1rzdaCvHkG4bNuG3lY3XJl9KIkL8_IAtHg/formResponse";
+const REROLL_FORM =
+  "https://docs.google.com/forms/d/e/1FAIpQLSdhtsPeCkdV8QxXxtEpXqO8mJOxYeU2VegbTXA0DrESol9k9g/formResponse";
+const REROLL_SHEET = "14C-hHeKiZiJgoXK1pBnukjdfdCwzlZcuNvMszOA75Bo";
+const manageMode = new URLSearchParams(location.search).get("manage") === "1";
+let rerollCount = 0;
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -175,11 +185,82 @@ function authorTopic(topics, isoDate) {
   return deck[mod(dayNumber(isoDate), deck.length)];
 }
 
-function topicForPool(isoDate, pool) {
+function topicForPool(isoDate, pool, count) {
   const topics = preparedTopics(isoDate);
-  if (pool === ALL_POOL) return scheduledTopic(topics, isoDate);
-  const mine = topics.filter((topic) => topic.author === pool);
-  return mine.length ? authorTopic(mine, isoDate) : scheduledTopic(topics, isoDate);
+  if (pool !== ALL_POOL) {
+    const mine = topics.filter((topic) => topic.author === pool);
+    return mine.length ? authorTopic(mine, isoDate) : scheduledTopic(topics, isoDate);
+  }
+  const normal = scheduledTopic(topics, isoDate);
+  if (!count) return normal;
+  const rest = topics.filter((topic) => topic.id !== normal.id);
+  if (!rest.length) return normal;
+  const order = seededShuffle(rest, hashString(`${isoDate}|reroll`));
+  return order[mod(count - 1, order.length)];
+}
+
+function postForm(action, fields) {
+  const frameName = "form-post-frame";
+  let frame = document.getElementById(frameName);
+  if (!frame) {
+    frame = document.createElement("iframe");
+    frame.id = frameName;
+    frame.name = frameName;
+    frame.hidden = true;
+    frame.style.display = "none";
+    document.body.appendChild(frame);
+  }
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = action;
+  form.target = frameName;
+  form.acceptCharset = "UTF-8";
+  Object.keys(fields).forEach((name) => {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = fields[name];
+    form.appendChild(input);
+  });
+  form.style.display = "none";
+  document.body.appendChild(form);
+  form.submit();
+  form.remove();
+}
+
+function loadRerollCount(isoDate) {
+  return new Promise((resolve) => {
+    const callback = `rerollCount${Date.now()}`;
+    let settled = false;
+    const script = document.createElement("script");
+    const finish = (count) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      window[callback] = undefined;
+      script.remove();
+      resolve(count);
+    };
+    const timer = setTimeout(() => finish(0), 2500);
+    window[callback] = (response) => {
+      let count = 0;
+      try {
+        const rows = (response && response.table && response.table.rows) || [];
+        count = rows.filter((row) => {
+          const cell = row.c && row.c[1];
+          return cell && String(cell.v) === isoDate;
+        }).length;
+      } catch {
+        count = 0;
+      }
+      finish(count);
+    };
+    script.onerror = () => finish(0);
+    script.src = `https://docs.google.com/spreadsheets/d/${REROLL_SHEET}/gviz/tq?tqx=${encodeURIComponent(
+      `out:json;responseHandler=${callback}`
+    )}`;
+    document.body.appendChild(script);
+  });
 }
 
 function poolEntry(state, pool, today, topicId) {
@@ -286,7 +367,8 @@ function paint() {
   const today = jerusalemDate();
   const stored = loadState();
   const pool = renderDeckPicker(stored);
-  const topic = topicForPool(today, pool);
+  const topic = topicForPool(today, pool, rerollCount);
+  manageEl.hidden = !manageMode;
   const entry = poolEntry(stored, pool, today, topic.id);
   const answers = entry.answers;
   const finished = answers.length >= topic.questions.length;
@@ -419,38 +501,15 @@ async function sendSuggestion(event) {
     return;
   }
 
-  const frameName = "suggest-frame";
-  let frame = document.getElementById(frameName);
-  if (!frame) {
-    frame = document.createElement("iframe");
-    frame.id = frameName;
-    frame.name = frameName;
-    frame.hidden = true;
-    frame.style.display = "none";
-    document.body.appendChild(frame);
-  }
-  const form = document.createElement("form");
-  form.method = "POST";
-  form.action = "https://docs.google.com/forms/d/e/1FAIpQLSdPpaz7hVphB6T1cwwSfaT6anEAyu5F6ALUVnP3poGIvqozpQ/formResponse";
-  form.target = frameName;
-  form.acceptCharset = "UTF-8";
-  const fields = {
-    "entry.364998489": displayName,
-    "entry.2060333505": body,
-    fvv: "1",
-    pageHistory: "0",
-  };
-  Object.keys(fields).forEach((name) => {
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = name;
-    input.value = fields[name];
-    form.appendChild(input);
-  });
-  form.style.display = "none";
-  document.body.appendChild(form);
-  form.submit();
-  form.remove();
+  postForm(
+    "https://docs.google.com/forms/d/e/1FAIpQLSdPpaz7hVphB6T1cwwSfaT6anEAyu5F6ALUVnP3poGIvqozpQ/formResponse",
+    {
+      "entry.364998489": displayName,
+      "entry.2060333505": body,
+      fvv: "1",
+      pageHistory: "0",
+    }
+  );
   suggestForm.elements.body.value = "";
   suggestMessage("נשלח. אפשר לשלוח עוד שאלה.", true);
 }
@@ -474,7 +533,48 @@ function setMemory(value) {
     lastCompletedDate: stored.lastCompletedDate || "",
     byPool,
   });
+  postForm(STATS_FORM, {
+    "entry.1855265690": today,
+    "entry.89947017": topic.title,
+    "entry.1848207540": MEMORY_TEXT[value],
+    fvv: "1",
+    pageHistory: "0",
+  });
   paint();
+}
+
+let rerollBusy = false;
+
+async function rerollForEveryone() {
+  if (rerollBusy) return;
+  rerollBusy = true;
+  const today = jerusalemDate();
+  const before = rerollCount;
+  rerollBtn.disabled = true;
+  rerollNote.hidden = false;
+  rerollNote.textContent = "שולח הגרלה חדשה...";
+  postForm(REROLL_FORM, {
+    "entry.608940561": today,
+    fvv: "1",
+    pageHistory: "0",
+  });
+  const started = Date.now();
+  let next = before;
+  while (Date.now() - started < 12000) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    next = await loadRerollCount(today);
+    if (next > before) break;
+  }
+  rerollBusy = false;
+  rerollBtn.disabled = false;
+  if (next > before) {
+    rerollCount = next;
+    paint();
+    rerollNote.hidden = false;
+    rerollNote.textContent = "הנושא התחלף. מי שירענן את הדף יראה אותו.";
+    return;
+  }
+  rerollNote.textContent = "ההגרלה לא הופיעה בגיליון. נסו שוב.";
 }
 
 copyBtn.addEventListener("click", copyResult);
@@ -482,4 +582,8 @@ memoryEl.querySelectorAll("button").forEach((button) => {
   button.addEventListener("click", () => setMemory(button.dataset.memory));
 });
 suggestForm.addEventListener("submit", sendSuggestion);
-paint();
+rerollBtn.addEventListener("click", rerollForEveryone);
+loadRerollCount(jerusalemDate()).then((count) => {
+  rerollCount = count;
+  paint();
+});
