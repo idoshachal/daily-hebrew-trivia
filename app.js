@@ -415,13 +415,40 @@ async function sendSuggestion(event) {
     return;
   }
 
-  const title = `שאלה מאת ${displayName}`;
-  const issueBody = `${displayName}\n\n${body}`;
-  const href = `https://github.com/idoshachal/daily-hebrew-trivia/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(issueBody)}`;
-  const opened = window.open(href, "_blank", "noopener");
-  if (!opened) window.location.assign(href);
+  const frameName = "suggest-frame";
+  let frame = document.getElementById(frameName);
+  if (!frame) {
+    frame = document.createElement("iframe");
+    frame.id = frameName;
+    frame.name = frameName;
+    frame.hidden = true;
+    frame.style.display = "none";
+    document.body.appendChild(frame);
+  }
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = "https://docs.google.com/forms/d/e/1FAIpQLSdPpaz7hVphB6T1cwwSfaT6anEAyu5F6ALUVnP3poGIvqozpQ/formResponse";
+  form.target = frameName;
+  form.acceptCharset = "UTF-8";
+  const fields = {
+    "entry.364998489": displayName,
+    "entry.2060333505": body,
+    fvv: "1",
+    pageHistory: "0",
+  };
+  Object.keys(fields).forEach((name) => {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = fields[name];
+    form.appendChild(input);
+  });
+  form.style.display = "none";
+  document.body.appendChild(form);
+  form.submit();
+  form.remove();
   suggestForm.elements.body.value = "";
-  suggestMessage("נפתח עמוד בגיטהאב. לחצו שם Submit new issue. השאלה תעבור לתיבה פרטית, ואפשר לשלוח עוד אחת.", true);
+  suggestMessage("נשלח. אפשר לשלוח עוד שאלה.", true);
 }
 
 deckSelect.addEventListener("change", () => {
