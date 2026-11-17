@@ -100,6 +100,30 @@ h1 {
   font-weight: 700;
 }
 
+.intro {
+  margin: 0.9rem 0 0;
+  color: var(--ink);
+  font-size: 1.02rem;
+  line-height: 1.65;
+}
+
+.intro p,
+.intro ol {
+  margin: 0 0 0.75rem;
+}
+
+.intro ol {
+  padding-inline-start: 1.25rem;
+}
+
+.intro li + li {
+  margin-top: 0.55rem;
+}
+
+.intro p:last-child {
+  margin-bottom: 0;
+}
+
 .deck {
   display: grid;
   gap: 0.35rem;
@@ -298,6 +322,44 @@ h2 {
   margin: 0;
   color: var(--ok);
   font-weight: 700;
+}
+
+.memory {
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.memory[hidden] {
+  display: none;
+}
+
+.memory p {
+  margin: 0 0 0.65rem;
+  font-weight: 700;
+}
+
+.memory-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.memory button {
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent);
+  background: transparent;
+  border: 1.5px solid #e4c7c2;
+  border-radius: 999px;
+  padding: 0.5rem 0.8rem;
+  cursor: pointer;
+}
+
+.memory button.selected {
+  color: #fffaf3;
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .suggest {

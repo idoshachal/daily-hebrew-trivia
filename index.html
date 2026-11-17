@@ -22,6 +22,23 @@
       <header class="masthead">
         <p class="eyebrow">ספר העובדות</p>
         <h1>העובדה היומית</h1>
+        <section class="intro">
+          <p>אהלן, האתר הזה בא לענות על שתי סוגיות שהטרידו אותי:</p>
+          <ol>
+            <li>
+              אנחנו בעידן שכל שאלה שאנחנו רוצים לדעת את התשובה, אנחנו במרחק קליל מלקבל אותה. הבעיה שהרבה פעמים אנחנו לא חושבים על לשאול את השאלה, על דברים שסיכוי גבוה שיעניינו אותנו למה ואיך הם קורים.
+            </li>
+            <li>
+              גם דברים ששאלנו וקיבלנו תשובה, ואפילו הבנו אותה, אחרי כמה זמן אנחנו עלולים לשכוח אותה ולשאול אותה שוב.
+            </li>
+          </ol>
+          <p>
+            יש פה ממשק נחמד, של שאלות שאני שאלתי בשנים האחרונות, שאני לצערי כל פעם מחדש שוכח את התשובות. כאן פעם ביום תעלה שאלה שכבר שאלתי, בשביל לבדוק אם אני זוכר. זה יענה על סוגיה 2. בהקשר של סוגיה 1, אתם מוזמנים להעלות לפה גם שאלות שנראות לכן מעניינות, וככה אני אוכל ללמוד מדברים שלא חשבתי לשאול. לכם זה יסגור פינה בהקשר של סוגיה 2.
+          </p>
+          <p>
+            איך זה עובד? תענו על השאלה, ובסוף העמוד אם תרצו תוכלו להוסיף אחת משלכן. מוזמנים גם לענות האם למדתם משהו חדש, האם למדתם משהו שידעתם, או שזה משהו שכבר ידעתם וגם זכרתם.
+          </p>
+        </section>
         <p class="date" id="date-line"></p>
         <p class="streak" id="streak-line"></p>
         <label class="deck" id="deck-label" hidden>
@@ -39,10 +56,18 @@
           </button>
           <p class="copy-note" id="copy-note" hidden>הועתק</p>
         </div>
+        <section class="memory" id="memory" hidden>
+          <p>מה לקחתם מהשאלות האלה?</p>
+          <div class="memory-options">
+            <button type="button" data-memory="new">למדתי משהו חדש</button>
+            <button type="button" data-memory="knew">למדתי משהו שידעתי</button>
+            <button type="button" data-memory="remembered">ידעתי וגם זכרתי</button>
+          </div>
+        </section>
         <form class="suggest" id="suggest" hidden>
           <h3>יש לך שאלה?</h3>
           <p class="suggest-lead">
-            כתבו אותה במילים שלכם, עם השם שיופיע עליה. היא ממתינה לבדיקה ולא נכנסת לשאלת היום מיד.
+            כתבו אותה במילים שלכם, עם השם שיופיע עליה. השליחה נפתחת בגיטהאב, ומשם השאלה עוברת לתיבה פרטית שרק עידו רואה.
           </p>
           <label>
             השם שלך
@@ -60,8 +85,7 @@
 
       <p class="tomorrow">מחר נושא אחר. אותו נושא לכולם.</p>
     </main>
-    <script src="config.js?v=8"></script>
-    <script src="questions.js?v=8"></script>
-    <script src="app.js?v=8"></script>
+    <script src="questions.js?v=9"></script>
+    <script src="app.js?v=9"></script>
   </body>
 </html>

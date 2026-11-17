@@ -14,8 +14,14 @@ const stackEl = document.getElementById("stack");
 const actionsEl = document.getElementById("actions");
 const copyBtn = document.getElementById("copy-btn");
 const copyNote = document.getElementById("copy-note");
+const memoryEl = document.getElementById("memory");
 const suggestForm = document.getElementById("suggest");
 const suggestNote = document.getElementById("suggest-note");
+const MEMORY_TEXT = {
+  new: "למדתי משהו חדש",
+  knew: "למדתי משהו שידעתי",
+  remembered: "ידעתי וגם זכרתי",
+};
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -184,9 +190,15 @@ function poolEntry(state, pool, today, topicId) {
     entry.topicId === topicId &&
     Array.isArray(entry.answers)
   ) {
-    return entry;
+    return {
+      answeredDate: entry.answeredDate,
+      topicId: entry.topicId,
+      answers: entry.answers,
+      completed: Boolean(entry.completed),
+      memory: entry.memory || "",
+    };
   }
-  return { answeredDate: today, topicId, answers: [], completed: false };
+  return { answeredDate: today, topicId, answers: [], completed: false, memory: "" };
 }
 
 function renderDeckPicker(state) {
@@ -280,7 +292,7 @@ function paint() {
   const finished = answers.length >= topic.questions.length;
   const visibleCount = finished ? topic.questions.length : answers.length + 1;
 
-  session = { today, topic, pool, answers, stored };
+  session = { today, topic, pool, answers, stored, memory: entry.memory || "" };
 
   dateLine.textContent = hebrewDate(today);
   streakLine.textContent = streakText(visibleStreak(stored, today));
@@ -299,8 +311,12 @@ function paint() {
 
   actionsEl.hidden = !finished;
   copyBtn.hidden = !finished;
+  memoryEl.hidden = !finished;
   suggestForm.hidden = !finished;
   copyNote.hidden = true;
+  memoryEl.querySelectorAll("button").forEach((button) => {
+    button.classList.toggle("selected", button.dataset.memory === entry.memory);
+  });
 
   if (scrollTarget !== null) {
     const node = stackEl.children[scrollTarget];
@@ -315,12 +331,15 @@ function submit(choiceIndex) {
 
   const nextAnswers = answers.concat(choiceIndex);
   const finished = nextAnswers.length === topic.questions.length;
+  const previous = stored.byPool[pool];
+  const keptMemory = previous && previous.answeredDate === today ? previous.memory || "" : "";
   const byPool = Object.assign({}, stored.byPool, {
     [pool]: {
       answeredDate: today,
       topicId: topic.id,
       answers: nextAnswers,
       completed: finished,
+      memory: keptMemory,
     },
   });
 
@@ -344,14 +363,16 @@ async function copyResult() {
   const correctCount = topic.questions.filter((round, index) => {
     return round.choices[entry.answers[index]]?.correct;
   }).length;
-  const text = [
+  const lines = [
     "העובדה היומית",
     hebrewDate(today),
     topic.author,
     topic.title,
     `${correctCount} מתוך ${topic.questions.length}`,
     streakText(state.streak),
-  ].join("\n");
+  ];
+  if (entry.memory && MEMORY_TEXT[entry.memory]) lines.push(MEMORY_TEXT[entry.memory]);
+  const text = lines.join("\n");
 
   try {
     await navigator.clipboard.writeText(text);
@@ -394,36 +415,13 @@ async function sendSuggestion(event) {
     return;
   }
 
-  const url = typeof SUPABASE_URL === "string" ? SUPABASE_URL.replace(/\/$/, "") : "";
-  const key = typeof SUPABASE_ANON_KEY === "string" ? SUPABASE_ANON_KEY : "";
-  if (!url || !key) {
-    suggestMessage("השליחה עדיין לא מחוברת.", false);
-    return;
-  }
-
-  suggestForm.querySelector("button").disabled = true;
-  try {
-    const response = await fetch(`${url}/rest/v1/submissions`, {
-      method: "POST",
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify({ display_name: displayName, body }),
-    });
-    if (!response.ok) {
-      suggestMessage("השליחה לא הצליחה. נסו שוב בעוד רגע.", false);
-      return;
-    }
-    suggestForm.elements.body.value = "";
-    suggestMessage("נשלח. השאלה ממתינה לבדיקה, ואפשר לשלוח עוד אחת.", true);
-  } catch {
-    suggestMessage("השליחה לא הצליחה. נסו שוב בעוד רגע.", false);
-  } finally {
-    suggestForm.querySelector("button").disabled = false;
-  }
+  const title = `שאלה מאת ${displayName}`;
+  const issueBody = `${displayName}\n\n${body}`;
+  const href = `https://github.com/idoshachal/daily-hebrew-trivia/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(issueBody)}`;
+  const opened = window.open(href, "_blank", "noopener");
+  if (!opened) window.location.assign(href);
+  suggestForm.elements.body.value = "";
+  suggestMessage("נפתח עמוד בגיטהאב. לחצו שם Submit new issue. השאלה תעבור לתיבה פרטית, ואפשר לשלוח עוד אחת.", true);
 }
 
 deckSelect.addEventListener("change", () => {
@@ -432,6 +430,24 @@ deckSelect.addEventListener("change", () => {
   saveState(stored);
   paint();
 });
+function setMemory(value) {
+  const { today, topic, pool, stored } = session;
+  const entry = poolEntry(stored, pool, today, topic.id);
+  const byPool = Object.assign({}, stored.byPool, {
+    [pool]: Object.assign({}, entry, { memory: value }),
+  });
+  saveState({
+    pool,
+    streak: stored.streak || 0,
+    lastCompletedDate: stored.lastCompletedDate || "",
+    byPool,
+  });
+  paint();
+}
+
 copyBtn.addEventListener("click", copyResult);
+memoryEl.querySelectorAll("button").forEach((button) => {
+  button.addEventListener("click", () => setMemory(button.dataset.memory));
+});
 suggestForm.addEventListener("submit", sendSuggestion);
 paint();
