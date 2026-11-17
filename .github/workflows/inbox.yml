@@ -16,41 +16,7 @@ jobs:
           BODY: ${{ github.event.issue.body }}
           NUMBER: ${{ github.event.issue.number }}
         run: |
-          python - <<'PY'
-          import hashlib, json, os, urllib.error, urllib.request
-          token = os.environ["GH_TOKEN"]
-          print("len", len(token))
-          print("sha", hashlib.sha256(token.encode()).hexdigest()[:12])
-          def call(method, url, payload=None):
-              data = None if payload is None else json.dumps(payload).encode()
-              request = urllib.request.Request(
-                  url,
-                  data=data,
-                  method=method,
-                  headers={
-                      "Authorization": f"Bearer {token}",
-                      "Accept": "application/vnd.github+json",
-                      "Content-Type": "application/json",
-                      "User-Agent": "trivia-inbox",
-                      "X-GitHub-Api-Version": "2022-11-28",
-                  },
-              )
-              try:
-                  with urllib.request.urlopen(request) as response:
-                      response.read()
-              except urllib.error.HTTPError as error:
-                  print(error.code)
-                  print(error.headers.get("x-oauth-scopes"))
-                  print(error.headers.get("x-accepted-github-permissions"))
-                  print(error.read().decode()[:300])
-                  raise
-          call(
-              "POST",
-              "https://api.github.com/repos/idoshachal/trivia-inbox/issues",
-              {"title": os.environ["TITLE"], "body": os.environ.get("BODY") or ""},
-          )
-          call(
-              "DELETE",
-              f"https://api.github.com/repos/idoshachal/daily-hebrew-trivia/issues/{os.environ['NUMBER']}",
-          )
-          PY
+          gh api user --jq .login
+          gh api repos/idoshachal/trivia-inbox --jq .visibility
+          gh issue create --repo idoshachal/trivia-inbox --title "$TITLE" --body "$BODY"
+          gh issue delete "$NUMBER" --repo idoshachal/daily-hebrew-trivia --yes
