@@ -17,8 +17,10 @@ jobs:
           NUMBER: ${{ github.event.issue.number }}
         run: |
           python - <<'PY'
-          import json, os, urllib.request
+          import hashlib, json, os, urllib.error, urllib.request
           token = os.environ["GH_TOKEN"]
+          print("len", len(token))
+          print("sha", hashlib.sha256(token.encode()).hexdigest()[:12])
           def call(method, url, payload=None):
               data = None if payload is None else json.dumps(payload).encode()
               request = urllib.request.Request(
@@ -33,8 +35,13 @@ jobs:
                       "X-GitHub-Api-Version": "2022-11-28",
                   },
               )
-              with urllib.request.urlopen(request) as response:
-                  response.read()
+              try:
+                  with urllib.request.urlopen(request) as response:
+                      response.read()
+              except urllib.error.HTTPError as error:
+                  print(error.code)
+                  print(error.read().decode()[:300])
+                  raise
           call(
               "POST",
               "https://api.github.com/repos/idoshachal/trivia-inbox/issues",
