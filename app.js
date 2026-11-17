@@ -19,7 +19,7 @@ const suggestForm = document.getElementById("suggest");
 const suggestNote = document.getElementById("suggest-note");
 const MEMORY_TEXT = {
   new: "למדתי משהו חדש",
-  knew: "למדתי משהו שידעתי",
+  knew: "ידעתי פעם והספקתי לשכוח",
   remembered: "ידעתי וגם זכרתי",
 };
 

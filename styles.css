@@ -101,27 +101,28 @@ h1 {
 }
 
 .intro {
-  margin: 0.9rem 0 0;
+  margin: 0.85rem 0 0;
+  max-width: 36rem;
   color: var(--ink);
-  font-size: 1.02rem;
-  line-height: 1.65;
+  font-size: 1rem;
+  line-height: 1.55;
 }
 
-.intro p,
-.intro ol {
-  margin: 0 0 0.75rem;
+.intro-hello {
+  margin: 0 0 0.35rem;
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 700;
 }
 
-.intro ol {
-  padding-inline-start: 1.25rem;
+.intro p {
+  margin: 0 0 0.45rem;
 }
 
-.intro li + li {
-  margin-top: 0.55rem;
-}
-
-.intro p:last-child {
-  margin-bottom: 0;
+.intro-how {
+  margin: 0.65rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
 }
 
 .deck {
