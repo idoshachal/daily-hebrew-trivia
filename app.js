@@ -1,4 +1,4 @@
-const STORAGE_KEY = "daily-fact-v1";
+const STORAGE_KEY = "daily-fact-v2";
 const TIME_ZONE = "Asia/Jerusalem";
 const EPOCH_UTC = Date.UTC(2026, 0, 1);
 const DECK_SEED = 0xa11ce;
@@ -6,6 +6,7 @@ const LETTERS = ["א", "ב", "ג", "ד"];
 
 const dateLine = document.getElementById("date-line");
 const streakLine = document.getElementById("streak-line");
+const progressEl = document.getElementById("progress");
 const questionEl = document.getElementById("question");
 const optionsEl = document.getElementById("options");
 const verdictEl = document.getElementById("verdict");
@@ -14,6 +15,7 @@ const explainBody = document.getElementById("explain-body");
 const actionsEl = document.getElementById("actions");
 const copyBtn = document.getElementById("copy-btn");
 const copyNote = document.getElementById("copy-note");
+const nextBtn = document.getElementById("next-btn");
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -106,24 +108,29 @@ function streakText(count) {
 function visibleStreak(state, today) {
   if (!state.answeredDate || !state.streak) return 0;
   if (state.answeredDate === today) return state.streak;
-  if (state.answeredDate === shiftDate(today, -1)) return state.streak;
+  if (state.answeredDate === shiftDate(today, -1) && state.completed) return state.streak;
   return 0;
 }
 
-function todayQuestion(isoDate) {
-  const deck = seededShuffle(QUESTIONS, DECK_SEED);
-  let question = deck[mod(dayNumber(isoDate), deck.length)];
-  if (isoDate === "2026-11-17") {
-    question = QUESTIONS.find((item) => item.id === "aurora-green") || question;
-  }
-  const choices = seededShuffle(
-    question.options.map((text, index) => ({
-      text,
-      correct: index === question.correctIndex,
-    })),
-    hashString(`${isoDate}|${question.id}`)
-  );
-  return { question, choices };
+function todayTopic(isoDate) {
+  const byId = new Map(QUESTIONS.map((question) => [question.id, question]));
+  const topics = TOPICS.map((topic) => ({
+    id: topic.id,
+    title: topic.title,
+    questions: topic.questionIds.map((id) => {
+      const question = byId.get(id);
+      const choices = seededShuffle(
+        question.options.map((text, index) => ({
+          text,
+          correct: index === question.correctIndex,
+        })),
+        hashString(`${isoDate}|${id}`)
+      );
+      return { question, choices };
+    }),
+  }));
+  const deck = seededShuffle(topics, DECK_SEED);
+  return deck[mod(dayNumber(isoDate), deck.length)];
 }
 
 function fillExplanation(text) {
@@ -168,8 +175,7 @@ function renderOptions(choices, answered, selectedIndex) {
   });
 }
 
-function showResult(choices, selectedIndex) {
-  const correct = choices[selectedIndex].correct;
+function showResult(correct) {
   verdictEl.hidden = false;
   verdictEl.textContent = correct ? "נכון" : "לא נכון";
   verdictEl.className = correct ? "verdict good" : "verdict bad";
@@ -178,68 +184,93 @@ function showResult(choices, selectedIndex) {
   copyNote.hidden = true;
 }
 
-function resultLine(correct) {
-  return correct ? "נכון" : "לא נכון";
+function sameDayState(state, today, topicId) {
+  if (state.answeredDate === today && state.topicId === topicId && Array.isArray(state.answers)) {
+    return state;
+  }
+  return null;
 }
 
 let session = null;
+let reviewIndex = null;
 
 function paint() {
   const today = jerusalemDate();
-  const { question, choices } = todayQuestion(today);
-  const state = loadState();
-  const answered =
-    state.answeredDate === today && state.questionId === question.id;
-  const selectedIndex = answered ? state.choice : null;
+  const topic = todayTopic(today);
+  const stored = loadState();
+  const active = sameDayState(stored, today, topic.id);
+  const answers = active ? active.answers : [];
+  const finished = answers.length >= topic.questions.length;
+  let cursor = finished ? topic.questions.length - 1 : answers.length;
+  if (reviewIndex !== null && reviewIndex < answers.length) cursor = reviewIndex;
+  const round = topic.questions[cursor];
+  const selectedIndex = cursor < answers.length ? answers[cursor] : null;
+  const answered = selectedIndex !== null;
 
-  session = { today, question, choices, state };
+  session = { today, topic, cursor, answers, stored };
 
   dateLine.textContent = hebrewDate(today);
-  streakLine.textContent = streakText(visibleStreak(state, today));
-  questionEl.textContent = question.question;
-  renderOptions(choices, answered, selectedIndex);
+  streakLine.textContent = streakText(visibleStreak(stored, today));
+  const score = finished
+    ? ` · ${answers.filter((choice, index) => topic.questions[index].choices[choice].correct).length} נכונות`
+    : "";
+  progressEl.textContent = `${topic.title} · שאלה ${cursor + 1} מתוך ${topic.questions.length}${score}`;
+  questionEl.textContent = round.question.question;
+  renderOptions(round.choices, answered, selectedIndex);
 
   if (answered) {
-    fillExplanation(question.explanation);
-    showResult(choices, selectedIndex);
+    fillExplanation(round.question.explanation);
+    showResult(round.choices[selectedIndex].correct);
+    nextBtn.hidden = cursor >= topic.questions.length - 1;
+    copyBtn.hidden = !finished;
   } else {
     verdictEl.hidden = true;
     explainEl.hidden = true;
+    explainBody.replaceChildren();
     actionsEl.hidden = true;
+    nextBtn.hidden = true;
+    copyBtn.hidden = true;
   }
 }
 
 function submit(choiceIndex) {
-  const { today, question, choices, state } = session;
-  if (state.answeredDate === today && state.questionId === question.id) return;
+  const { today, topic, cursor, answers, stored } = session;
+  if (answers.length !== cursor) return;
 
-  const yesterday = shiftDate(today, -1);
-  const streak =
-    state.answeredDate === yesterday && state.streak ? state.streak + 1 : 1;
+  const nextAnswers = answers.concat(choiceIndex);
+  const finished = nextAnswers.length === topic.questions.length;
+  const yesterdayDone =
+    stored.answeredDate === shiftDate(today, -1) && stored.completed && stored.streak;
+  const kept = finished ? (yesterdayDone ? stored.streak + 1 : 1) : yesterdayDone ? stored.streak : 0;
 
   const next = {
     answeredDate: today,
-    questionId: question.id,
-    choice: choiceIndex,
-    streak,
+    topicId: topic.id,
+    answers: nextAnswers,
+    completed: finished,
+    streak: kept,
   };
   saveState(next);
-  session.state = next;
+  reviewIndex = nextAnswers.length - 1;
+  paint();
+}
 
-  streakLine.textContent = streakText(streak);
-  renderOptions(choices, true, choiceIndex);
-  fillExplanation(question.explanation);
-  showResult(choices, choiceIndex);
-  verdictEl.focus?.();
+function showNext() {
+  reviewIndex = null;
+  paint();
 }
 
 async function copyResult() {
-  const { today, choices, state } = session;
-  const correct = Boolean(choices[state.choice]?.correct);
+  const { today, topic, stored } = session;
+  const state = loadState();
+  const correctCount = topic.questions.filter((round, index) => {
+    return round.choices[state.answers[index]]?.correct;
+  }).length;
   const text = [
     "העובדה היומית",
     hebrewDate(today),
-    resultLine(correct),
+    topic.title,
+    `${correctCount} מתוך ${topic.questions.length}`,
     streakText(state.streak),
   ].join("\n");
 
@@ -259,4 +290,5 @@ async function copyResult() {
 }
 
 copyBtn.addEventListener("click", copyResult);
+nextBtn.addEventListener("click", showNext);
 paint();

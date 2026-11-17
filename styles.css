@@ -92,6 +92,14 @@ h1 {
   background: var(--accent);
 }
 
+.progress {
+  margin: 0 0 0.7rem;
+  padding-inline-start: 0.45rem;
+  color: var(--accent);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
 h2 {
   margin: 0 0 1.1rem;
   padding-inline-start: 0.45rem;
@@ -223,6 +231,7 @@ h2 {
   display: none;
 }
 
+.next,
 .copy {
   font: inherit;
   font-weight: 700;
@@ -234,10 +243,24 @@ h2 {
   cursor: pointer;
 }
 
-.copy:hover {
-  background: #fdf4f2;
+.next {
+  color: #fffaf3;
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
+.next:hover,
+.copy:hover {
+  background: #fdf4f2;
+  color: var(--accent);
+}
+
+.next:hover {
+  background: #7a2d24;
+  color: #fffaf3;
+}
+
+.next:focus-visible,
 .copy:focus-visible {
   outline: 3px solid rgba(141, 52, 41, 0.35);
   outline-offset: 2px;
