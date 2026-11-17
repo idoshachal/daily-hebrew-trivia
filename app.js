@@ -112,7 +112,10 @@ function visibleStreak(state, today) {
 
 function todayQuestion(isoDate) {
   const deck = seededShuffle(QUESTIONS, DECK_SEED);
-  const question = deck[mod(dayNumber(isoDate), deck.length)];
+  let question = deck[mod(dayNumber(isoDate), deck.length)];
+  if (isoDate === "2026-11-17") {
+    question = QUESTIONS.find((item) => item.id === "aurora-green") || question;
+  }
   const choices = seededShuffle(
     question.options.map((text, index) => ({
       text,
