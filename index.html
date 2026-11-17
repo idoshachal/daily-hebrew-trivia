@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>העובדה היומית</title>
+    <meta
+      name="description"
+      content="שאלה אחת ביום מתוך ספר העובדות. אותה שאלה לכולם."
+    />
+    <meta name="theme-color" content="#f3ecdf" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <header class="masthead">
+        <p class="eyebrow">ספר העובדות</p>
+        <h1>העובדה היומית</h1>
+        <p class="date" id="date-line"></p>
+        <p class="streak" id="streak-line"></p>
+      </header>
+
+      <article class="card" id="card">
+        <h2 id="question"></h2>
+        <div
+          class="options"
+          id="options"
+          role="group"
+          aria-labelledby="question"
+        ></div>
+        <p class="verdict" id="verdict" hidden role="status"></p>
+        <section class="explain" id="explain" hidden>
+          <h3>ההסבר המלא</h3>
+          <div id="explain-body"></div>
+        </section>
+        <div class="actions" id="actions" hidden>
+          <button type="button" class="copy" id="copy-btn">
+            העתקת התוצאה
+          </button>
+          <p class="copy-note" id="copy-note" hidden>הועתק</p>
+        </div>
+      </article>
+
+      <p class="tomorrow">מחר שאלה אחרת. אותה שאלה לכולם.</p>
+    </main>
+    <script src="questions.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

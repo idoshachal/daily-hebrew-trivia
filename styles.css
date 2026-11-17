@@ -1,0 +1,272 @@
+:root {
+  --paper: #f3ecdf;
+  --ink: #1e1a16;
+  --muted: #6f655c;
+  --card: #fffaf3;
+  --line: #e3d5c3;
+  --accent: #8d3429;
+  --ok: #1c6b45;
+  --ok-bg: #e7f6ee;
+  --ok-line: #8dceb0;
+  --bad: #9d332c;
+  --bad-bg: #fdeceb;
+  --bad-line: #e7aea9;
+  --shadow: 0 22px 50px rgba(70, 44, 22, 0.08);
+  --serif: "Frank Ruhl Libre", "David Libre", "Times New Roman", serif;
+  --sans: "Heebo", "Arial Hebrew", "Arial", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--sans);
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 500px at 100% -10%, rgba(141, 52, 41, 0.08), transparent 55%),
+    linear-gradient(180deg, #f7f1e6 0%, var(--paper) 40%, #efe4d4 100%);
+}
+
+.wrap {
+  width: min(40rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2.4rem 0 3rem;
+}
+
+.masthead {
+  margin-bottom: 1.25rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.2rem;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(2.4rem, 8vw, 3.4rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.date,
+.streak {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.98rem;
+}
+
+.streak {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.card {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow);
+  padding: 1.35rem 1.2rem 1.2rem;
+  overflow: hidden;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  bottom: 0;
+  width: 0.45rem;
+  background: var(--accent);
+}
+
+h2 {
+  margin: 0 0 1.1rem;
+  padding-inline-start: 0.45rem;
+  font-family: var(--serif);
+  font-size: clamp(1.45rem, 4.4vw, 1.9rem);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.options {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.85rem 0.9rem;
+  text-align: right;
+  font: inherit;
+  font-size: 1.02rem;
+  line-height: 1.45;
+  color: var(--ink);
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: 0.9rem;
+  cursor: pointer;
+}
+
+.option:hover {
+  border-color: #c9b49a;
+}
+
+.option:focus-visible {
+  outline: 3px solid rgba(141, 52, 41, 0.35);
+  outline-offset: 2px;
+}
+
+.option .mark {
+  flex: 0 0 auto;
+  width: 1.7rem;
+  height: 1.7rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #f6efe6;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.option:disabled {
+  cursor: default;
+}
+
+.option.correct {
+  background: var(--ok-bg);
+  border-color: var(--ok-line);
+}
+
+.option.correct .mark {
+  background: var(--ok);
+  color: #fff;
+}
+
+.option.wrong {
+  background: var(--bad-bg);
+  border-color: var(--bad-line);
+}
+
+.option.wrong .mark {
+  background: var(--bad);
+  color: #fff;
+}
+
+.option.dim {
+  opacity: 0.55;
+}
+
+.verdict {
+  margin: 1rem 0 0;
+  padding-inline-start: 0.45rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.verdict.good {
+  color: var(--ok);
+}
+
+.verdict.bad {
+  color: var(--bad);
+}
+
+.explain {
+  margin-top: 0.85rem;
+  padding: 0.95rem 1rem;
+  background: #f7f1e8;
+  border-radius: 0.9rem;
+}
+
+.explain h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.explain p {
+  margin: 0 0 0.75rem;
+  line-height: 1.65;
+  font-size: 1.02rem;
+}
+
+.explain p:last-child {
+  margin-bottom: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.95rem;
+}
+
+.actions[hidden] {
+  display: none;
+}
+
+.copy {
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent);
+  background: transparent;
+  border: 1.5px solid #e4c7c2;
+  border-radius: 999px;
+  padding: 0.55rem 0.95rem;
+  cursor: pointer;
+}
+
+.copy:hover {
+  background: #fdf4f2;
+}
+
+.copy:focus-visible {
+  outline: 3px solid rgba(141, 52, 41, 0.35);
+  outline-offset: 2px;
+}
+
+.copy-note {
+  margin: 0;
+  color: var(--ok);
+  font-weight: 700;
+}
+
+.tomorrow {
+  margin: 1rem 0.2rem 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+@media (max-width: 420px) {
+  .wrap {
+    width: min(40rem, calc(100% - 1.25rem));
+    padding-top: 1.4rem;
+  }
+
+  .card {
+    padding: 1.15rem 0.9rem 1rem;
+  }
+
+  .option {
+    font-size: 0.98rem;
+    padding: 0.8rem 0.75rem;
+  }
+}
