@@ -40,6 +40,8 @@ jobs:
                       response.read()
               except urllib.error.HTTPError as error:
                   print(error.code)
+                  print(error.headers.get("x-oauth-scopes"))
+                  print(error.headers.get("x-accepted-github-permissions"))
                   print(error.read().decode()[:300])
                   raise
           call(
