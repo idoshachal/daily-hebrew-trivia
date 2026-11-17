@@ -24,34 +24,44 @@
         <h1>העובדה היומית</h1>
         <p class="date" id="date-line"></p>
         <p class="streak" id="streak-line"></p>
+        <label class="deck" id="deck-label" hidden>
+          <span>מה פותחים היום</span>
+          <select id="deck"></select>
+        </label>
       </header>
 
       <article class="card" id="card">
         <p class="progress" id="progress"></p>
-        <h2 id="question"></h2>
-        <div
-          class="options"
-          id="options"
-          role="group"
-          aria-labelledby="question"
-        ></div>
-        <p class="verdict" id="verdict" hidden role="status"></p>
-        <section class="explain" id="explain" hidden>
-          <h3>ההסבר המלא</h3>
-          <div id="explain-body"></div>
-        </section>
+        <div id="stack"></div>
         <div class="actions" id="actions" hidden>
-          <button type="button" class="next" id="next-btn" hidden>לשאלה הבאה</button>
           <button type="button" class="copy" id="copy-btn" hidden>
             העתקת התוצאה
           </button>
           <p class="copy-note" id="copy-note" hidden>הועתק</p>
         </div>
+        <form class="suggest" id="suggest" hidden>
+          <h3>יש לך שאלה?</h3>
+          <p class="suggest-lead">
+            כתבו אותה במילים שלכם, עם השם שיופיע עליה. היא ממתינה לבדיקה ולא נכנסת לשאלת היום מיד.
+          </p>
+          <label>
+            השם שלך
+            <input name="display_name" type="text" maxlength="40" autocomplete="name" required />
+          </label>
+          <label>
+            השאלה
+            <textarea name="body" rows="4" maxlength="2000" required></textarea>
+          </label>
+          <input class="hp" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" />
+          <button type="submit">שליחה</button>
+          <p class="suggest-note" id="suggest-note" hidden></p>
+        </form>
       </article>
 
       <p class="tomorrow">מחר נושא אחר. אותו נושא לכולם.</p>
     </main>
-    <script src="questions.js?v=7"></script>
-    <script src="app.js?v=7"></script>
+    <script src="config.js?v=8"></script>
+    <script src="questions.js?v=8"></script>
+    <script src="app.js?v=8"></script>
   </body>
 </html>

@@ -100,6 +100,34 @@ h1 {
   font-weight: 700;
 }
 
+.deck {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.85rem 0 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.deck[hidden] {
+  display: none;
+}
+
+.deck select {
+  font: inherit;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 0.8rem;
+  padding: 0.55rem 0.7rem;
+}
+
+.round + .round {
+  margin-top: 1.35rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--line);
+}
+
 h2 {
   margin: 0 0 1.1rem;
   padding-inline-start: 0.45rem;
@@ -270,6 +298,83 @@ h2 {
   margin: 0;
   color: var(--ok);
   font-weight: 700;
+}
+
+.suggest {
+  margin-top: 1.3rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+}
+
+.suggest[hidden] {
+  display: none;
+}
+
+.suggest h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+}
+
+.suggest-lead {
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.suggest label {
+  display: grid;
+  gap: 0.3rem;
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.suggest input,
+.suggest textarea {
+  font: inherit;
+  font-weight: 500;
+  color: var(--ink);
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: 0.8rem;
+  padding: 0.6rem 0.7rem;
+}
+
+.suggest button {
+  font: inherit;
+  font-weight: 700;
+  color: #fffaf3;
+  background: var(--accent);
+  border: 1.5px solid var(--accent);
+  border-radius: 999px;
+  padding: 0.55rem 0.95rem;
+  cursor: pointer;
+}
+
+.suggest button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.hp {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.suggest-note {
+  margin: 0.75rem 0 0;
+  font-weight: 700;
+}
+
+.suggest-note.good {
+  color: var(--ok);
+}
+
+.suggest-note.bad {
+  color: var(--bad);
 }
 
 .tomorrow {

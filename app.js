@@ -1,4 +1,5 @@
-const STORAGE_KEY = "daily-fact-v2";
+const STORAGE_KEY = "daily-fact-v3";
+const ALL_POOL = "all";
 const TIME_ZONE = "Asia/Jerusalem";
 const EPOCH_UTC = Date.UTC(2026, 0, 1);
 const DECK_SEED = 0xa11ce;
@@ -6,16 +7,15 @@ const LETTERS = ["א", "ב", "ג", "ד"];
 
 const dateLine = document.getElementById("date-line");
 const streakLine = document.getElementById("streak-line");
+const deckLabel = document.getElementById("deck-label");
+const deckSelect = document.getElementById("deck");
 const progressEl = document.getElementById("progress");
-const questionEl = document.getElementById("question");
-const optionsEl = document.getElementById("options");
-const verdictEl = document.getElementById("verdict");
-const explainEl = document.getElementById("explain");
-const explainBody = document.getElementById("explain-body");
+const stackEl = document.getElementById("stack");
 const actionsEl = document.getElementById("actions");
 const copyBtn = document.getElementById("copy-btn");
 const copyNote = document.getElementById("copy-note");
-const nextBtn = document.getElementById("next-btn");
+const suggestForm = document.getElementById("suggest");
+const suggestNote = document.getElementById("suggest-note");
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -85,12 +85,22 @@ function mod(n, m) {
   return ((n % m) + m) % m;
 }
 
+function emptyState() {
+  return { pool: ALL_POOL, streak: 0, lastCompletedDate: "", byPool: {} };
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      pool: typeof parsed.pool === "string" ? parsed.pool : ALL_POOL,
+      streak: parsed.streak || 0,
+      lastCompletedDate: parsed.lastCompletedDate || "",
+      byPool: parsed.byPool && typeof parsed.byPool === "object" ? parsed.byPool : {},
+    };
   } catch {
-    return {};
+    return emptyState();
   }
 }
 
@@ -106,31 +116,29 @@ function streakText(count) {
 }
 
 function visibleStreak(state, today) {
-  if (!state.answeredDate || !state.streak) return 0;
-  if (state.answeredDate === today) return state.streak;
-  if (state.answeredDate === shiftDate(today, -1) && state.completed) return state.streak;
+  if (!state.streak || !state.lastCompletedDate) return 0;
+  if (state.lastCompletedDate === today) return state.streak;
+  if (state.lastCompletedDate === shiftDate(today, -1)) return state.streak;
   return 0;
 }
 
 const BASE_TOPIC_COUNT = 26;
 const DECK_GROWTH_DAY = "2026-11-18";
 
-function scheduledTopic(topics, isoDate) {
-  const base = seededShuffle(topics.slice(0, BASE_TOPIC_COUNT), DECK_SEED);
-  const extras = topics.slice(BASE_TOPIC_COUNT);
-  const n = dayNumber(isoDate);
-  const added = dayNumber(DECK_GROWTH_DAY);
-  const cycleEnd = added - mod(added, base.length) + base.length;
-  if (n < cycleEnd || extras.length === 0) return base[mod(n, base.length)];
-  const extended = extras.concat(base);
-  return extended[mod(n - cycleEnd, extended.length)];
+function uniqueAuthors() {
+  const seen = [];
+  TOPICS.forEach((topic) => {
+    if (topic.author && !seen.includes(topic.author)) seen.push(topic.author);
+  });
+  return seen;
 }
 
-function todayTopic(isoDate) {
+function preparedTopics(isoDate) {
   const byId = new Map(QUESTIONS.map((question) => [question.id, question]));
-  const topics = TOPICS.map((topic) => ({
+  return TOPICS.map((topic) => ({
     id: topic.id,
     title: topic.title,
+    author: topic.author,
     questions: topic.questionIds.map((id) => {
       const question = byId.get(id);
       const choices = seededShuffle(
@@ -143,21 +151,78 @@ function todayTopic(isoDate) {
       return { question, choices };
     }),
   }));
-  return scheduledTopic(topics, isoDate);
 }
 
-function fillExplanation(text) {
-  explainBody.replaceChildren();
-  text.split("\n\n").forEach((paragraph) => {
-    const p = document.createElement("p");
-    p.textContent = paragraph;
-    explainBody.appendChild(p);
+function scheduledTopic(topics, isoDate) {
+  const base = seededShuffle(topics.slice(0, BASE_TOPIC_COUNT), DECK_SEED);
+  const extras = topics.slice(BASE_TOPIC_COUNT);
+  const n = dayNumber(isoDate);
+  const added = dayNumber(DECK_GROWTH_DAY);
+  const cycleEnd = added - mod(added, base.length) + base.length;
+  if (n < cycleEnd || extras.length === 0) return base[mod(n, base.length)];
+  const extended = extras.concat(base);
+  return extended[mod(n - cycleEnd, extended.length)];
+}
+
+function authorTopic(topics, isoDate) {
+  const deck = seededShuffle(topics, DECK_SEED);
+  return deck[mod(dayNumber(isoDate), deck.length)];
+}
+
+function topicForPool(isoDate, pool) {
+  const topics = preparedTopics(isoDate);
+  if (pool === ALL_POOL) return scheduledTopic(topics, isoDate);
+  const mine = topics.filter((topic) => topic.author === pool);
+  return mine.length ? authorTopic(mine, isoDate) : scheduledTopic(topics, isoDate);
+}
+
+function poolEntry(state, pool, today, topicId) {
+  const entry = state.byPool[pool];
+  if (
+    entry &&
+    entry.answeredDate === today &&
+    entry.topicId === topicId &&
+    Array.isArray(entry.answers)
+  ) {
+    return entry;
+  }
+  return { answeredDate: today, topicId, answers: [], completed: false };
+}
+
+function renderDeckPicker(state) {
+  const names = uniqueAuthors();
+  const show = names.length > 1;
+  deckLabel.hidden = !show;
+  if (!show) return ALL_POOL;
+
+  const options = [{ value: ALL_POOL, label: "שאלה יומית" }].concat(
+    names.map((name) => ({ value: name, label: `שאלה יומית של ${name}` }))
+  );
+  const selected = options.some((item) => item.value === state.pool) ? state.pool : ALL_POOL;
+  deckSelect.replaceChildren();
+  options.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.value;
+    option.textContent = item.label;
+    option.selected = item.value === selected;
+    deckSelect.appendChild(option);
   });
+  return selected;
 }
 
-function renderOptions(choices, answered, selectedIndex) {
-  optionsEl.replaceChildren();
-  choices.forEach((choice, index) => {
+function renderRound(round, selectedIndex) {
+  const section = document.createElement("section");
+  section.className = "round";
+
+  const heading = document.createElement("h2");
+  heading.textContent = round.question.question;
+
+  const options = document.createElement("div");
+  options.className = "options";
+  options.setAttribute("role", "group");
+  const answered = selectedIndex !== null;
+
+  round.choices.forEach((choice, index) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "option";
@@ -169,119 +234,120 @@ function renderOptions(choices, answered, selectedIndex) {
 
     const label = document.createElement("span");
     label.textContent = choice.text;
-
     button.append(mark, label);
 
     if (answered && choice.correct) button.classList.add("correct");
-    if (answered && index === selectedIndex && !choice.correct) {
-      button.classList.add("wrong");
-    }
-    if (answered && !choice.correct && index !== selectedIndex) {
-      button.classList.add("dim");
-    }
+    if (answered && index === selectedIndex && !choice.correct) button.classList.add("wrong");
+    if (answered && !choice.correct && index !== selectedIndex) button.classList.add("dim");
+    if (!answered) button.addEventListener("click", () => submit(index));
 
-    if (!answered) {
-      button.addEventListener("click", () => submit(index));
-    }
-
-    optionsEl.appendChild(button);
+    options.appendChild(button);
   });
-}
 
-function showResult(correct) {
-  verdictEl.hidden = false;
-  verdictEl.textContent = correct ? "נכון" : "לא נכון";
-  verdictEl.className = correct ? "verdict good" : "verdict bad";
-  explainEl.hidden = false;
-  actionsEl.hidden = false;
-  copyNote.hidden = true;
-}
+  section.append(heading, options);
+  if (!answered) return section;
 
-function sameDayState(state, today, topicId) {
-  if (state.answeredDate === today && state.topicId === topicId && Array.isArray(state.answers)) {
-    return state;
-  }
-  return null;
+  const verdict = document.createElement("p");
+  verdict.className = round.choices[selectedIndex].correct ? "verdict good" : "verdict bad";
+  verdict.setAttribute("role", "status");
+  verdict.textContent = round.choices[selectedIndex].correct ? "נכון" : "לא נכון";
+
+  const explain = document.createElement("section");
+  explain.className = "explain";
+  const title = document.createElement("h3");
+  title.textContent = "ההסבר המלא";
+  const body = document.createElement("div");
+  round.question.explanation.split("\n\n").forEach((paragraph) => {
+    const p = document.createElement("p");
+    p.textContent = paragraph;
+    body.appendChild(p);
+  });
+  explain.append(title, body);
+  section.append(verdict, explain);
+  return section;
 }
 
 let session = null;
-let reviewIndex = null;
+let scrollTarget = null;
 
 function paint() {
   const today = jerusalemDate();
-  const topic = todayTopic(today);
   const stored = loadState();
-  const active = sameDayState(stored, today, topic.id);
-  const answers = active ? active.answers : [];
+  const pool = renderDeckPicker(stored);
+  const topic = topicForPool(today, pool);
+  const entry = poolEntry(stored, pool, today, topic.id);
+  const answers = entry.answers;
   const finished = answers.length >= topic.questions.length;
-  let cursor = finished ? topic.questions.length - 1 : answers.length;
-  if (reviewIndex !== null && reviewIndex < answers.length) cursor = reviewIndex;
-  const round = topic.questions[cursor];
-  const selectedIndex = cursor < answers.length ? answers[cursor] : null;
-  const answered = selectedIndex !== null;
+  const visibleCount = finished ? topic.questions.length : answers.length + 1;
 
-  session = { today, topic, cursor, answers, stored };
+  session = { today, topic, pool, answers, stored };
 
   dateLine.textContent = hebrewDate(today);
   streakLine.textContent = streakText(visibleStreak(stored, today));
-  const score = finished
-    ? ` · ${answers.filter((choice, index) => topic.questions[index].choices[choice].correct).length} נכונות`
-    : "";
-  progressEl.textContent = `${topic.title} · שאלה ${cursor + 1} מתוך ${topic.questions.length}${score}`;
-  questionEl.textContent = round.question.question;
-  renderOptions(round.choices, answered, selectedIndex);
+  const correctCount = answers.filter((choice, index) => {
+    return topic.questions[index].choices[choice].correct;
+  }).length;
+  progressEl.textContent = finished
+    ? `${topic.author} · ${topic.title} · ${correctCount} מתוך ${topic.questions.length}`
+    : `${topic.author} · ${topic.title} · שאלה ${visibleCount} מתוך ${topic.questions.length}`;
 
-  if (answered) {
-    fillExplanation(round.question.explanation);
-    showResult(round.choices[selectedIndex].correct);
-    nextBtn.hidden = cursor >= topic.questions.length - 1;
-    copyBtn.hidden = !finished;
-  } else {
-    verdictEl.hidden = true;
-    explainEl.hidden = true;
-    explainBody.replaceChildren();
-    actionsEl.hidden = true;
-    nextBtn.hidden = true;
-    copyBtn.hidden = true;
+  stackEl.replaceChildren();
+  for (let index = 0; index < visibleCount; index += 1) {
+    const selected = index < answers.length ? answers[index] : null;
+    stackEl.appendChild(renderRound(topic.questions[index], selected));
+  }
+
+  actionsEl.hidden = !finished;
+  copyBtn.hidden = !finished;
+  suggestForm.hidden = !finished;
+  copyNote.hidden = true;
+
+  if (scrollTarget !== null) {
+    const node = stackEl.children[scrollTarget];
+    scrollTarget = null;
+    node?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
 
 function submit(choiceIndex) {
-  const { today, topic, cursor, answers, stored } = session;
-  if (answers.length !== cursor) return;
+  const { today, topic, pool, answers, stored } = session;
+  if (answers.length >= topic.questions.length) return;
 
   const nextAnswers = answers.concat(choiceIndex);
   const finished = nextAnswers.length === topic.questions.length;
-  const yesterdayDone =
-    stored.answeredDate === shiftDate(today, -1) && stored.completed && stored.streak;
-  const kept = finished ? (yesterdayDone ? stored.streak + 1 : 1) : yesterdayDone ? stored.streak : 0;
+  const byPool = Object.assign({}, stored.byPool, {
+    [pool]: {
+      answeredDate: today,
+      topicId: topic.id,
+      answers: nextAnswers,
+      completed: finished,
+    },
+  });
 
-  const next = {
-    answeredDate: today,
-    topicId: topic.id,
-    answers: nextAnswers,
-    completed: finished,
-    streak: kept,
-  };
-  saveState(next);
-  reviewIndex = nextAnswers.length - 1;
-  paint();
-}
+  let streak = stored.streak || 0;
+  let lastCompletedDate = stored.lastCompletedDate || "";
+  if (finished && lastCompletedDate !== today) {
+    const yesterday = shiftDate(today, -1);
+    streak = lastCompletedDate === yesterday && streak ? streak + 1 : 1;
+    lastCompletedDate = today;
+  }
 
-function showNext() {
-  reviewIndex = null;
+  saveState({ pool, streak, lastCompletedDate, byPool });
+  scrollTarget = finished ? nextAnswers.length - 1 : nextAnswers.length;
   paint();
 }
 
 async function copyResult() {
-  const { today, topic, stored } = session;
+  const { today, topic } = session;
   const state = loadState();
+  const entry = state.byPool[session.pool];
   const correctCount = topic.questions.filter((round, index) => {
-    return round.choices[state.answers[index]]?.correct;
+    return round.choices[entry.answers[index]]?.correct;
   }).length;
   const text = [
     "העובדה היומית",
     hebrewDate(today),
+    topic.author,
     topic.title,
     `${correctCount} מתוך ${topic.questions.length}`,
     streakText(state.streak),
@@ -302,6 +368,70 @@ async function copyResult() {
   copyNote.hidden = false;
 }
 
+function suggestMessage(text, ok) {
+  suggestNote.hidden = false;
+  suggestNote.textContent = text;
+  suggestNote.className = ok ? "suggest-note good" : "suggest-note bad";
+}
+
+async function sendSuggestion(event) {
+  event.preventDefault();
+  const data = new FormData(suggestForm);
+  if (String(data.get("website") || "").trim()) {
+    suggestMessage("נשלח. אפשר לשלוח עוד שאלה.", true);
+    suggestForm.elements.body.value = "";
+    return;
+  }
+
+  const displayName = String(data.get("display_name") || "").trim();
+  const body = String(data.get("body") || "").trim();
+  if (displayName.length < 2 || displayName.length > 40) {
+    suggestMessage("השם צריך להיות בין 2 ל-40 תווים.", false);
+    return;
+  }
+  if (body.length < 10 || body.length > 2000) {
+    suggestMessage("השאלה צריכה להיות בין 10 ל-2000 תווים.", false);
+    return;
+  }
+
+  const url = typeof SUPABASE_URL === "string" ? SUPABASE_URL.replace(/\/$/, "") : "";
+  const key = typeof SUPABASE_ANON_KEY === "string" ? SUPABASE_ANON_KEY : "";
+  if (!url || !key) {
+    suggestMessage("השליחה עדיין לא מחוברת.", false);
+    return;
+  }
+
+  suggestForm.querySelector("button").disabled = true;
+  try {
+    const response = await fetch(`${url}/rest/v1/submissions`, {
+      method: "POST",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({ display_name: displayName, body }),
+    });
+    if (!response.ok) {
+      suggestMessage("השליחה לא הצליחה. נסו שוב בעוד רגע.", false);
+      return;
+    }
+    suggestForm.elements.body.value = "";
+    suggestMessage("נשלח. השאלה ממתינה לבדיקה, ואפשר לשלוח עוד אחת.", true);
+  } catch {
+    suggestMessage("השליחה לא הצליחה. נסו שוב בעוד רגע.", false);
+  } finally {
+    suggestForm.querySelector("button").disabled = false;
+  }
+}
+
+deckSelect.addEventListener("change", () => {
+  const stored = loadState();
+  stored.pool = deckSelect.value;
+  saveState(stored);
+  paint();
+});
 copyBtn.addEventListener("click", copyResult);
-nextBtn.addEventListener("click", showNext);
+suggestForm.addEventListener("submit", sendSuggestion);
 paint();
