@@ -16,7 +16,20 @@ jobs:
           BODY: ${{ github.event.issue.body }}
           NUMBER: ${{ github.event.issue.number }}
         run: |
-          gh api user --jq .login
-          gh api repos/idoshachal/trivia-inbox --jq .visibility
-          gh issue create --repo idoshachal/trivia-inbox --title "$TITLE" --body "$BODY"
-          gh issue delete "$NUMBER" --repo idoshachal/daily-hebrew-trivia --yes
+          python - <<'PY'
+          import os
+          import subprocess
+          with open("body.txt", "w", encoding="utf-8") as handle:
+              handle.write(os.environ.get("BODY") or "")
+          subprocess.check_call([
+              "gh", "issue", "create",
+              "--repo", "idoshachal/trivia-inbox",
+              "--title", os.environ["TITLE"],
+              "--body-file", "body.txt",
+          ])
+          subprocess.check_call([
+              "gh", "issue", "delete", os.environ["NUMBER"],
+              "--repo", "idoshachal/daily-hebrew-trivia",
+              "--yes",
+          ])
+          PY
