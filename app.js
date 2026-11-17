@@ -299,9 +299,13 @@ function paint() {
   const correctCount = answers.filter((choice, index) => {
     return topic.questions[index].choices[choice].correct;
   }).length;
-  progressEl.textContent = finished
-    ? `${topic.author} · ${topic.title} · ${correctCount} מתוך ${topic.questions.length}`
-    : `${topic.author} · ${topic.title} · שאלה ${visibleCount} מתוך ${topic.questions.length}`;
+  const detail = finished
+    ? `${correctCount} מתוך ${topic.questions.length}`
+    : `שאלה ${visibleCount} מתוך ${topic.questions.length}`;
+  const showAuthor = uniqueAuthors().length > 1 && topic.author;
+  progressEl.textContent = showAuthor
+    ? `${topic.author} · ${topic.title} · ${detail}`
+    : `${topic.title} · ${detail}`;
 
   stackEl.replaceChildren();
   for (let index = 0; index < visibleCount; index += 1) {
@@ -363,14 +367,13 @@ async function copyResult() {
   const correctCount = topic.questions.filter((round, index) => {
     return round.choices[entry.answers[index]]?.correct;
   }).length;
-  const lines = [
-    "העובדה היומית",
-    hebrewDate(today),
-    topic.author,
+  const lines = ["העובדה היומית", hebrewDate(today)];
+  if (uniqueAuthors().length > 1 && topic.author) lines.push(topic.author);
+  lines.push(
     topic.title,
     `${correctCount} מתוך ${topic.questions.length}`,
-    streakText(state.streak),
-  ];
+    streakText(state.streak)
+  );
   if (entry.memory && MEMORY_TEXT[entry.memory]) lines.push(MEMORY_TEXT[entry.memory]);
   const text = lines.join("\n");
 
