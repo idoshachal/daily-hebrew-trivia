@@ -363,6 +363,14 @@ h2 {
   border-color: var(--accent);
 }
 
+.memory button:disabled {
+  cursor: default;
+}
+
+.memory button:disabled:not(.selected) {
+  opacity: 0.45;
+}
+
 .suggest {
   margin-top: 1.3rem;
   padding-top: 1.1rem;

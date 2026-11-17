@@ -320,6 +320,7 @@ function paint() {
   copyNote.hidden = true;
   memoryEl.querySelectorAll("button").forEach((button) => {
     button.classList.toggle("selected", button.dataset.memory === entry.memory);
+    button.disabled = Boolean(entry.memory);
   });
 
   if (scrollTarget !== null) {
@@ -463,6 +464,7 @@ deckSelect.addEventListener("change", () => {
 function setMemory(value) {
   const { today, topic, pool, stored } = session;
   const entry = poolEntry(stored, pool, today, topic.id);
+  if (entry.memory || !MEMORY_TEXT[value]) return;
   const byPool = Object.assign({}, stored.byPool, {
     [pool]: Object.assign({}, entry, { memory: value }),
   });
