@@ -112,6 +112,20 @@ function visibleStreak(state, today) {
   return 0;
 }
 
+const BASE_TOPIC_COUNT = 26;
+const DECK_GROWTH_DAY = "2026-11-18";
+
+function scheduledTopic(topics, isoDate) {
+  const base = seededShuffle(topics.slice(0, BASE_TOPIC_COUNT), DECK_SEED);
+  const extras = topics.slice(BASE_TOPIC_COUNT);
+  const n = dayNumber(isoDate);
+  const added = dayNumber(DECK_GROWTH_DAY);
+  const cycleEnd = added - mod(added, base.length) + base.length;
+  if (n < cycleEnd || extras.length === 0) return base[mod(n, base.length)];
+  const extended = extras.concat(base);
+  return extended[mod(n - cycleEnd, extended.length)];
+}
+
 function todayTopic(isoDate) {
   const byId = new Map(QUESTIONS.map((question) => [question.id, question]));
   const topics = TOPICS.map((topic) => ({
@@ -129,8 +143,7 @@ function todayTopic(isoDate) {
       return { question, choices };
     }),
   }));
-  const deck = seededShuffle(topics, DECK_SEED);
-  return deck[mod(dayNumber(isoDate), deck.length)];
+  return scheduledTopic(topics, isoDate);
 }
 
 function fillExplanation(text) {
