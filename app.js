@@ -1,8 +1,6 @@
 const STORAGE_KEY = "daily-fact-v3";
 const ALL_POOL = "all";
 const TIME_ZONE = "Asia/Jerusalem";
-const EPOCH_UTC = Date.UTC(2026, 0, 1);
-const DECK_SEED = 0xa11ce;
 const LETTERS = ["א", "ב", "ג", "ד"];
 
 const dateLine = document.getElementById("date-line");
@@ -11,6 +9,9 @@ const deckLabel = document.getElementById("deck-label");
 const deckSelect = document.getElementById("deck");
 const progressEl = document.getElementById("progress");
 const stackEl = document.getElementById("stack");
+const moreEl = document.getElementById("more");
+const anotherBtn = document.getElementById("another-btn");
+const anotherNote = document.getElementById("another-note");
 const actionsEl = document.getElementById("actions");
 const copyBtn = document.getElementById("copy-btn");
 const copyNote = document.getElementById("copy-note");
@@ -84,12 +85,6 @@ function hebrewDate(isoDate) {
   }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
-function dayNumber(isoDate) {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  const utc = Date.UTC(year, month - 1, day);
-  return Math.floor((utc - EPOCH_UTC) / 86400000);
-}
-
 function shiftDate(isoDate, days) {
   const [year, month, day] = isoDate.split("-").map(Number);
   const next = new Date(Date.UTC(year, month - 1, day));
@@ -138,9 +133,6 @@ function visibleStreak(state, today) {
   return 0;
 }
 
-const BASE_TOPIC_COUNT = 26;
-const DECK_GROWTH_DAY = "2026-11-18";
-
 function uniqueAuthors() {
   const seen = [];
   TOPICS.forEach((topic) => {
@@ -169,34 +161,32 @@ function preparedTopics(isoDate) {
   }));
 }
 
-function scheduledTopic(topics, isoDate) {
-  const base = seededShuffle(topics.slice(0, BASE_TOPIC_COUNT), DECK_SEED);
-  const extras = topics.slice(BASE_TOPIC_COUNT);
-  const n = dayNumber(isoDate);
-  const added = dayNumber(DECK_GROWTH_DAY);
-  const cycleEnd = added - mod(added, base.length) + base.length;
-  if (n < cycleEnd || extras.length === 0) return base[mod(n, base.length)];
-  const extended = extras.concat(base);
-  return extended[mod(n - cycleEnd, extended.length)];
+function drawnTopic(topics, isoDate, salt) {
+  return seededShuffle(topics, hashString(`${isoDate}|${salt}`))[0];
 }
 
-function authorTopic(topics, isoDate) {
-  const deck = seededShuffle(topics, DECK_SEED);
-  return deck[mod(dayNumber(isoDate), deck.length)];
+function sharedTopic(topics, isoDate, count) {
+  const normal = drawnTopic(topics, isoDate, "all");
+  if (!count || topics.length < 2) return normal;
+  const rest = topics.filter((topic) => topic.id !== normal.id);
+  return seededShuffle(rest, hashString(`${isoDate}|reroll`))[mod(count - 1, rest.length)];
+}
+
+function topicsForPool(isoDate, pool) {
+  const topics = preparedTopics(isoDate);
+  if (pool === ALL_POOL) return topics;
+  const mine = topics.filter((topic) => topic.author === pool);
+  return mine.length ? mine : topics;
 }
 
 function topicForPool(isoDate, pool, count) {
   const topics = preparedTopics(isoDate);
-  if (pool !== ALL_POOL) {
-    const mine = topics.filter((topic) => topic.author === pool);
-    return mine.length ? authorTopic(mine, isoDate) : scheduledTopic(topics, isoDate);
-  }
-  const normal = scheduledTopic(topics, isoDate);
-  if (!count) return normal;
-  const rest = topics.filter((topic) => topic.id !== normal.id);
-  if (!rest.length) return normal;
-  const order = seededShuffle(rest, hashString(`${isoDate}|reroll`));
-  return order[mod(count - 1, order.length)];
+  const shared = sharedTopic(topics, isoDate, count);
+  if (pool === ALL_POOL) return shared;
+  const mine = topics.filter((topic) => topic.author === pool);
+  if (!mine.length) return shared;
+  if (shared.author === pool) return shared;
+  return drawnTopic(mine, isoDate, pool);
 }
 
 function postForm(action, fields) {
@@ -277,9 +267,10 @@ function poolEntry(state, pool, today, topicId) {
       answers: entry.answers,
       completed: Boolean(entry.completed),
       memory: entry.memory || "",
+      extras: Array.isArray(entry.extras) ? entry.extras : [],
     };
   }
-  return { answeredDate: today, topicId, answers: [], completed: false, memory: "" };
+  return { answeredDate: today, topicId, answers: [], completed: false, memory: "", extras: [] };
 }
 
 function renderDeckPicker(state) {
@@ -303,7 +294,7 @@ function renderDeckPicker(state) {
   return selected;
 }
 
-function renderRound(round, selectedIndex) {
+function renderRound(round, selectedIndex, onAnswer) {
   const section = document.createElement("section");
   section.className = "round";
 
@@ -332,7 +323,7 @@ function renderRound(round, selectedIndex) {
     if (answered && choice.correct) button.classList.add("correct");
     if (answered && index === selectedIndex && !choice.correct) button.classList.add("wrong");
     if (answered && !choice.correct && index !== selectedIndex) button.classList.add("dim");
-    if (!answered) button.addEventListener("click", () => submit(index));
+    if (!answered && onAnswer) button.addEventListener("click", () => onAnswer(index));
 
     options.appendChild(button);
   });
@@ -363,6 +354,32 @@ function renderRound(round, selectedIndex) {
 let session = null;
 let scrollTarget = null;
 
+function appendTopic(parent, topic, answers, onAnswer) {
+  const visibleCount = answers.length >= topic.questions.length ? topic.questions.length : answers.length + 1;
+  for (let index = 0; index < visibleCount; index += 1) {
+    const selected = index < answers.length ? answers[index] : null;
+    parent.appendChild(renderRound(topic.questions[index], selected, selected === null ? onAnswer : null));
+  }
+}
+
+function saveEntry(entry, countStreak) {
+  const stored = loadState();
+  const byPool = Object.assign({}, stored.byPool, { [session.pool]: entry });
+  let streak = stored.streak || 0;
+  let lastCompletedDate = stored.lastCompletedDate || "";
+  if (countStreak && lastCompletedDate !== session.today) {
+    const yesterday = shiftDate(session.today, -1);
+    streak = lastCompletedDate === yesterday && streak ? streak + 1 : 1;
+    lastCompletedDate = session.today;
+  }
+  saveState({
+    pool: session.pool,
+    streak,
+    lastCompletedDate,
+    byPool,
+  });
+}
+
 function paint() {
   const today = jerusalemDate();
   const stored = loadState();
@@ -373,6 +390,7 @@ function paint() {
   const answers = entry.answers;
   const finished = answers.length >= topic.questions.length;
   const visibleCount = finished ? topic.questions.length : answers.length + 1;
+  const catalog = new Map(preparedTopics(today).map((item) => [item.id, item]));
 
   session = { today, topic, pool, answers, stored, memory: entry.memory || "" };
 
@@ -390,10 +408,31 @@ function paint() {
     : `${topic.title} · ${detail}`;
 
   stackEl.replaceChildren();
-  for (let index = 0; index < visibleCount; index += 1) {
-    const selected = index < answers.length ? answers[index] : null;
-    stackEl.appendChild(renderRound(topic.questions[index], selected));
-  }
+  appendTopic(stackEl, topic, answers, submitMain);
+
+  moreEl.replaceChildren();
+  entry.extras.forEach((extra, extraIndex) => {
+    const extraTopic = catalog.get(extra.topicId);
+    if (!extraTopic) return;
+    const block = document.createElement("section");
+    block.className = "more-topic";
+    block.dataset.topicId = extra.topicId;
+    const label = document.createElement("p");
+    label.className = "more-label";
+    label.textContent = extraTopic.author
+      ? `שאלה נוספת · ${extraTopic.author} · ${extraTopic.title}`
+      : `שאלה נוספת · ${extraTopic.title}`;
+    block.appendChild(label);
+    const extraAnswers = Array.isArray(extra.answers) ? extra.answers : [];
+    appendTopic(block, extraTopic, extraAnswers, (choice) => submitExtra(extraIndex, choice));
+    moreEl.appendChild(block);
+  });
+
+  const used = new Set([topic.id].concat(entry.extras.map((extra) => extra.topicId)));
+  const remaining = topicsForPool(today, pool).filter((item) => !used.has(item.id));
+  anotherBtn.disabled = remaining.length === 0;
+  anotherNote.hidden = remaining.length > 0;
+  anotherNote.textContent = remaining.length ? "" : "אין עוד נושא במאגר הזה.";
 
   actionsEl.hidden = !finished;
   copyBtn.hidden = !finished;
@@ -405,41 +444,60 @@ function paint() {
     button.disabled = Boolean(entry.memory);
   });
 
-  if (scrollTarget !== null) {
-    const node = stackEl.children[scrollTarget];
+  if (scrollTarget) {
+    const node = scrollTarget.kind === "extra"
+      ? moreEl.querySelector(`[data-topic-id="${scrollTarget.topicId}"]`)
+      : stackEl.children[scrollTarget.index];
     scrollTarget = null;
     node?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
 
-function submit(choiceIndex) {
-  const { today, topic, pool, answers, stored } = session;
-  if (answers.length >= topic.questions.length) return;
+function submitMain(choiceIndex) {
+  const { today, topic, pool, stored } = session;
+  const entry = poolEntry(stored, pool, today, topic.id);
+  if (entry.answers.length >= topic.questions.length) return;
 
-  const nextAnswers = answers.concat(choiceIndex);
+  const nextAnswers = entry.answers.concat(choiceIndex);
   const finished = nextAnswers.length === topic.questions.length;
-  const previous = stored.byPool[pool];
-  const keptMemory = previous && previous.answeredDate === today ? previous.memory || "" : "";
-  const byPool = Object.assign({}, stored.byPool, {
-    [pool]: {
-      answeredDate: today,
-      topicId: topic.id,
-      answers: nextAnswers,
-      completed: finished,
-      memory: keptMemory,
-    },
-  });
+  saveEntry(
+    Object.assign({}, entry, { answers: nextAnswers, completed: finished }),
+    finished
+  );
+  scrollTarget = { kind: "main", index: finished ? nextAnswers.length - 1 : nextAnswers.length };
+  paint();
+}
 
-  let streak = stored.streak || 0;
-  let lastCompletedDate = stored.lastCompletedDate || "";
-  if (finished && lastCompletedDate !== today) {
-    const yesterday = shiftDate(today, -1);
-    streak = lastCompletedDate === yesterday && streak ? streak + 1 : 1;
-    lastCompletedDate = today;
-  }
+function submitExtra(extraIndex, choiceIndex) {
+  const { today, topic, pool, stored } = session;
+  const entry = poolEntry(stored, pool, today, topic.id);
+  const extra = entry.extras[extraIndex];
+  const extraTopic = preparedTopics(today).find((item) => item.id === extra?.topicId);
+  if (!extra || !extraTopic) return;
+  const answers = Array.isArray(extra.answers) ? extra.answers : [];
+  if (answers.length >= extraTopic.questions.length) return;
 
-  saveState({ pool, streak, lastCompletedDate, byPool });
-  scrollTarget = finished ? nextAnswers.length - 1 : nextAnswers.length;
+  const extras = entry.extras.slice();
+  extras[extraIndex] = { topicId: extra.topicId, answers: answers.concat(choiceIndex) };
+  saveEntry(Object.assign({}, entry, { extras }), false);
+  scrollTarget = { kind: "extra", topicId: extra.topicId };
+  paint();
+}
+
+function drawAnother() {
+  const { today, topic, pool, stored } = session;
+  const entry = poolEntry(stored, pool, today, topic.id);
+  const used = new Set([topic.id].concat(entry.extras.map((extra) => extra.topicId)));
+  const remaining = topicsForPool(today, pool).filter((item) => !used.has(item.id));
+  if (!remaining.length) return;
+  const pick = remaining[Math.floor(Math.random() * remaining.length)];
+  saveEntry(
+    Object.assign({}, entry, {
+      extras: entry.extras.concat({ topicId: pick.id, answers: [] }),
+    }),
+    false
+  );
+  scrollTarget = { kind: "extra", topicId: pick.id };
   paint();
 }
 
@@ -582,6 +640,7 @@ memoryEl.querySelectorAll("button").forEach((button) => {
   button.addEventListener("click", () => setMemory(button.dataset.memory));
 });
 suggestForm.addEventListener("submit", sendSuggestion);
+anotherBtn.addEventListener("click", drawAnother);
 rerollBtn.addEventListener("click", rerollForEveryone);
 loadRerollCount(jerusalemDate()).then((count) => {
   rerollCount = count;
