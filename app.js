@@ -288,8 +288,8 @@ function renderDeckPicker(state) {
   deckLabel.hidden = !show;
   if (!show) return ALL_POOL;
 
-  const options = [{ value: ALL_POOL, label: "שאלה יומית" }].concat(
-    names.map((name) => ({ value: name, label: `שאלה יומית של ${name}` }))
+  const options = [{ value: ALL_POOL, label: "שאלה של כולם" }].concat(
+    names.map((name) => ({ value: name, label: `מאגר של ${name}` }))
   );
   const selected = options.some((item) => item.value === state.pool) ? state.pool : ALL_POOL;
   deckSelect.replaceChildren();
